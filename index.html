@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Randoro - Random Interval Timer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        #app {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.1s;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .timer-display {
+            text-align: center;
+            margin: 30px 0;
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .status {
+            text-align: center;
+            color: #666;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script type="text/babel">
+        // Generate random ping times based on inputs
+        function generatePingTimes(T, N, L) {
+            // Validation check (same as Python assert)
+            if (T <= N * L) {
+                throw new Error("Total time T must be greater than N * L");
+            }
+
+            const fixedComp = N * L;
+            const randomComp = T - fixedComp;
+
+            // Generate random wait-time portions
+            const waitTimes = [];
+            for (let i = 0; i < N; i++) {
+                waitTimes.push(Math.random());
+            }
+
+            const sumWait = waitTimes.reduce((a, b) => a + b, 0);
+            const scaledWaitTimes = waitTimes.map(w => w * randomComp / sumWait);
+
+            // Build cumulative intervals (same output as Python list)
+            const randomIntervals = [];
+            let cumulativeWait = 0;
+
+            for (let i = 0; i < N; i++) {
+                cumulativeWait += scaledWaitTimes[i];
+                const value = +(cumulativeWait + L * i).toFixed(3); // round to milliseconds
+                randomIntervals.push(value);
+            }
+
+            return randomIntervals;
+        }
+        function generatePingTimesOld(totalDuration, numIntervals, minInterval) {
+            const T = totalDuration * 60; // Convert minutes to seconds
+            const N = numIntervals;
+            const L = minInterval;
+            
+            // Calculate available time for random distribution
+            const fixedTime = L * (N - 1);
+            const availableTime = T - fixedTime;
+            
+            if (availableTime < 0) {
+                throw new Error("Not enough time for the intervals specified");
+            }
+            
+            // Generate random intervals
+            const randomIntervals = [];
+            let remainingTime = availableTime;
+            
+            for (let i = 0; i < N - 1; i++) {
+                const maxForThis = remainingTime - (N - 1 - i) * 0; // Ensure some time for remaining
+                const randomExtra = Math.random() * Math.min(maxForThis, remainingTime);
+                randomIntervals.push(L + randomExtra);
+                remainingTime -= randomExtra;
+            }
+            
+            // Calculate cumulative times (when each ping should occur)
+            const pingTimes = [];
+            let cumulative = 0;
+            
+            for (let i = 0; i < randomIntervals.length; i++) {
+                cumulative += randomIntervals[i];
+                pingTimes.push(Math.round(cumulative));
+            }
+            
+            // Add final ping at the end
+            pingTimes.push(T);
+            
+            return pingTimes;
+        }
+        // Play a beep sound
+        function playBeep() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800; // Frequency in Hz
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+            
+            // Vibrate if supported (works on mobile)
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
+        function RandoroApp() {
+            // State management - these track the app's current data
+            const [totalDuration, setTotalDuration] = React.useState(5);
+            const [numIntervals, setNumIntervals] = React.useState(10);
+            const [minInterval, setMinInterval] = React.useState(10);
+            const [isRunning, setIsRunning] = React.useState(false);
+            const [timeElapsed, setTimeElapsed] = React.useState(0);
+            const [pingTimes, setPingTimes] = React.useState([]);
+            const [nextPingIndex, setNextPingIndex] = React.useState(0);
+            const [error, setError] = React.useState('');
+            
+            // Start the timer session
+            const startSession = () => {
+                try {
+                    // Generate the ping schedule
+                    const times = generatePingTimes(totalDuration, numIntervals, minInterval);
+                    setPingTimes(times);
+                    setNextPingIndex(0);
+                    setTimeElapsed(0);
+                    setIsRunning(true);
+                    setError('');
+                    
+                    // Play initial beep
+                    playBeep();
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+            
+            // Stop the timer
+            const stopSession = () => {
+                setIsRunning(false);
+                setTimeElapsed(0);
+                setNextPingIndex(0);
+            };
+            
+            // Timer logic - runs every second
+            React.useEffect(() => {
+                if (!isRunning) return;
+                
+                const interval = setInterval(() => {
+                    setTimeElapsed(prev => {
+                        const newTime = prev + 1;
+                        
+                        // Check if we should play a ping
+                        if (nextPingIndex < pingTimes.length && newTime >= pingTimes[nextPingIndex]) {
+                            playBeep();
+                            setNextPingIndex(prev => prev + 1);
+                        }
+                        
+                        // Stop when session is complete
+                        if (newTime >= totalDuration * 60) {
+                            setIsRunning(false);
+                            return prev;
+                        }
+                        
+                        return newTime;
+                    });
+                }, 1000);
+                
+                return () => clearInterval(interval);
+            }, [isRunning, nextPingIndex, pingTimes, totalDuration]);
+            
+            // Format seconds as MM:SS
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            // Render the UI
+            return (
+                <div>
+                    <h1>⏱️ Randoro</h1>
+                    
+                    {!isRunning ? (
+                        <div>
+                            <div className="input-group">
+                                <label>Total Duration (minutes)</label>
+                                <input
+                                    type="number"
+                                    value={totalDuration}
+                                    onChange={(e) => setTotalDuration(Number(e.target.value))}
+                                    min="1"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Number of Intervals</label>
+                                <input
+                                    type="number"
+                                    value={numIntervals}
+                                    onChange={(e) => setNumIntervals(Number(e.target.value))}
+                                    min="2"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Minimum Time Between Pings (seconds)</label>
+                                <input
+                                    type="number"
+                                    value={minInterval}
+                                    onChange={(e) => setMinInterval(Number(e.target.value))}
+                                    min="1"
+                                />
+                            </div>
+                            
+                            {error && <div style={{color: 'red', marginBottom: '10px', fontSize: '14px'}}>{error}</div>}
+                            
+                            <button onClick={startSession}>Start Session</button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="timer-display">{formatTime(timeElapsed)}</div>
+                            <div className="status">
+                                Next ping in: {nextPingIndex < pingTimes.length 
+                                    ? formatTime(pingTimes[nextPingIndex] - timeElapsed)
+                                    : 'Complete!'}
+                            </div>
+                            <div className="status">
+                                Ping {nextPingIndex} of {pingTimes.length}
+                            </div>
+                            <button onClick={stopSession}>Stop Session</button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        // Mount the app to the page
+        const root = ReactDOM.createRoot(document.getElementById('app'));
+        root.render(<RandoroApp />);
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
