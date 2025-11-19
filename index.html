@@ -114,12 +114,13 @@
         // Generate random ping times based on inputs
         function generatePingTimes(T, N, L) {
             // Validation check (same as Python assert)
-            if (T <= N * L) {
+            const T_secs = T * 60
+            if (T_secs <= N * L) {
                 throw new Error("Total time T must be greater than N * L");
             }
 
             const fixedComp = N * L;
-            const randomComp = T - fixedComp;
+            const randomComp = T_secs - fixedComp;
 
             // Generate random wait-time portions
             const waitTimes = [];
@@ -180,16 +181,40 @@
             
             return pingTimes;
         }
+
+        // Create audio context once (iOS requires this)
+        let audioContext = null;
+        
+        // Initialize audio context on first user interaction
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            // Resume context if suspended (iOS requirement)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        
         // Play a beep sound
         function playBeep() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioContext) {
+                console.log('Audio context not initialized');
+                return;
+            }
+            
+            // Resume if needed
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
             
-            oscillator.frequency.value = 800; // Frequency in Hz
+            oscillator.frequency.value = 800;
             oscillator.type = 'sine';
             
             gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -198,11 +223,12 @@
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.3);
             
-            // Vibrate if supported (works on mobile)
+            // Vibrate if supported
             if (navigator.vibrate) {
                 navigator.vibrate(200);
             }
         }
+
         function RandoroApp() {
             // State management - these track the app's current data
             const [totalDuration, setTotalDuration] = React.useState(5);
@@ -216,6 +242,7 @@
             
             // Start the timer session
             const startSession = () => {
+                initAudio(); // Initialize audio context on user interaction
                 try {
                     // Generate the ping schedule
                     const times = generatePingTimes(totalDuration, numIntervals, minInterval);
