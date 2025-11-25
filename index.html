@@ -143,44 +143,6 @@
 
             return randomIntervals;
         }
-        function generatePingTimesOld(totalDuration, numIntervals, minInterval) {
-            const T = totalDuration * 60; // Convert minutes to seconds
-            const N = numIntervals;
-            const L = minInterval;
-            
-            // Calculate available time for random distribution
-            const fixedTime = L * (N - 1);
-            const availableTime = T - fixedTime;
-            
-            if (availableTime < 0) {
-                throw new Error("Not enough time for the intervals specified");
-            }
-            
-            // Generate random intervals
-            const randomIntervals = [];
-            let remainingTime = availableTime;
-            
-            for (let i = 0; i < N - 1; i++) {
-                const maxForThis = remainingTime - (N - 1 - i) * 0; // Ensure some time for remaining
-                const randomExtra = Math.random() * Math.min(maxForThis, remainingTime);
-                randomIntervals.push(L + randomExtra);
-                remainingTime -= randomExtra;
-            }
-            
-            // Calculate cumulative times (when each ping should occur)
-            const pingTimes = [];
-            let cumulative = 0;
-            
-            for (let i = 0; i < randomIntervals.length; i++) {
-                cumulative += randomIntervals[i];
-                pingTimes.push(Math.round(cumulative));
-            }
-            
-            // Add final ping at the end
-            pingTimes.push(T);
-            
-            return pingTimes;
-        }
 
         // Create audio context once (iOS requires this)
         let audioContext = null;
@@ -283,6 +245,8 @@
                         // Stop when session is complete
                         if (newTime >= totalDuration * 60) {
                             setIsRunning(false);
+                            playBeep();
+                            alert("Session Complete!");
                             return prev;
                         }
                         
