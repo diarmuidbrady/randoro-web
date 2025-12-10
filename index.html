@@ -207,8 +207,19 @@
             const startSession = () => {
                 initAudio(); // Initialize audio context on user interaction
                 try {
+                    // Convert strings to numbers and validate
+                    const T = parseFloat(totalDuration) || 0;
+                    const N = parseFloat(numIntervals) || 0;
+                    const L = parseFloat(minInterval) || 0;
+
+                    // Validate inputs
+                    if (T <= 0 || N <= 0 || L <= 0) {
+                        setError("All values must be numbers greater than zero")
+                        return;
+                    }
+
                     // Generate the ping schedule
-                    const times = generatePingTimes(totalDuration, numIntervals, minInterval);
+                    const times = generatePingTimes(T, N, L);
                     setPingTimes(times);
                     setNextPingIndex(0);
                     setTimeElapsed(0);
@@ -278,7 +289,12 @@
                                     type="number"
                                     value={totalDuration}
                                     onChange={(e) => setTotalDuration(Number(e.target.value))}
-                                    min="1"
+                                    onBlur={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (isNaN(val) || val <= 0) setTotalDuration('5');
+                                    }}
+                                    min="0.1"
+                                    step="0.1"
                                 />
                             </div>
                             
@@ -311,7 +327,7 @@
                             <div className="timer-display">{formatTime(timeElapsed)}</div>
                             <div className="status">
                                 Next ping in: {nextPingIndex < pingTimes.length 
-                                    ? formatTime(pingTimes[nextPingIndex] - timeElapsed)
+                                    ? formatTime(Math.round(pingTimes[nextPingIndex] - timeElapsed))
                                     : 'Complete!'}
                             </div>
                             <div className="status">
