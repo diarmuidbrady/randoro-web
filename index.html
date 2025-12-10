@@ -116,7 +116,8 @@
             // Validation check (same as Python assert)
             const T_secs = T * 60
             if (T_secs <= N * L) {
-                throw new Error("Total time T must be greater than N * L");
+                const minRequired = ((N * L) / 60).toFixed(3);
+                throw new Error(`Not enough time! With ${N} intervals and ${L}s minimum gap, you need at least ${minRequired} minutes.`);
             }
 
             const fixedComp = N * L;
