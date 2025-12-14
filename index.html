@@ -194,9 +194,9 @@
 
         function RandoroApp() {
             // State management - these track the app's current data
-            const [totalDuration, setTotalDuration] = React.useState(0.2);
-            const [numIntervals, setNumIntervals] = React.useState(5);
-            const [minInterval, setMinInterval] = React.useState(2);
+            const [totalDuration, setTotalDuration] = React.useState("");
+            const [numIntervals, setNumIntervals] = React.useState("");
+            const [minInterval, setMinInterval] = React.useState("");
             const [isRunning, setIsRunning] = React.useState(false);
             const [timeElapsed, setTimeElapsed] = React.useState(0);
             const [pingTimes, setPingTimes] = React.useState([]);
@@ -291,7 +291,7 @@
                                     onChange={(e) => setTotalDuration(Number(e.target.value))}
                                     onBlur={(e) => {
                                         const val = parseFloat(e.target.value);
-                                        if (isNaN(val) || val <= 0) setTotalDuration('5');
+                                        if (isNaN(val) || val <= 0) setTotalDuration('');
                                     }}
                                     min="0.1"
                                     step="0.1"
