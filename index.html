@@ -288,7 +288,7 @@
                                 <input
                                     type="number"
                                     value={totalDuration}
-                                    onChange={(e) => setTotalDuration(Number(e.target.value))}
+                                    onChange={(e) => setTotalDuration(e.target.value)}
                                     onBlur={(e) => {
                                         const val = parseFloat(e.target.value);
                                         if (isNaN(val) || val <= 0) setTotalDuration('');
@@ -303,7 +303,7 @@
                                 <input
                                     type="number"
                                     value={numIntervals}
-                                    onChange={(e) => setNumIntervals(Number(e.target.value))}
+                                    onChange={(e) => setNumIntervals(e.target.value)}
                                     min="2"
                                 />
                             </div>
@@ -313,7 +313,7 @@
                                 <input
                                     type="number"
                                     value={minInterval}
-                                    onChange={(e) => setMinInterval(Number(e.target.value))}
+                                    onChange={(e) => setMinInterval(e.target.value)}
                                     min="1"
                                 />
                             </div>
