@@ -194,7 +194,7 @@
 
         function RandoroApp() {
             // State management - these track the app's current data
-            const [totalDuration, setTotalDuration] = React.useState(0.5);
+            const [totalDuration, setTotalDuration] = React.useState(0.25);
             const [numIntervals, setNumIntervals] = React.useState(6);
             const [minInterval, setMinInterval] = React.useState(2);
             const [isRunning, setIsRunning] = React.useState(false);
@@ -326,9 +326,9 @@
                         <div>
                             <div className="timer-display">{formatTime(timeElapsed)}</div>
                             <div className="status">
-                                Next ping in: {nextPingIndex < pingTimes.length 
-                                    ? formatTime(Math.round(pingTimes[nextPingIndex] - timeElapsed))
-                                    : 'Complete!'}
+                                {nextPingIndex < pingTimes.length 
+                                    ? "Next ping in: " + formatTime(Math.round(pingTimes[nextPingIndex] - timeElapsed))
+                                    : 'Last interval'}
                             </div>
                             <div className="status">
                                 Ping {nextPingIndex} of {pingTimes.length}
