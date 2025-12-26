@@ -160,7 +160,7 @@
         }
         
         // Play a beep sound
-        function playBeep() {
+        function playOneBeep(frequency = 750, gain = 1, end_gain_value = 0.07, beep_duration = 0.15) {
             if (!audioContext) {
                 console.log('Audio context not initialized');
                 return;
@@ -177,14 +177,14 @@
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
             
-            oscillator.frequency.value = 800;
+            oscillator.frequency.value = frequency;
             oscillator.type = 'sine';
             
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(gain, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(end_gain_value, audioContext.currentTime + beep_duration);
             
             oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
+            oscillator.stop(audioContext.currentTime + beep_duration);
             
             // Vibrate if supported
             if (navigator.vibrate) {
@@ -194,8 +194,8 @@
 
         function RandoroApp() {
             // State management - these track the app's current data
-            const [totalDuration, setTotalDuration] = React.useState(0.25);
-            const [numIntervals, setNumIntervals] = React.useState(6);
+            const [totalDuration, setTotalDuration] = React.useState(2);
+            const [numIntervals, setNumIntervals] = React.useState(30);
             const [minInterval, setMinInterval] = React.useState(2);
             const [isRunning, setIsRunning] = React.useState(false);
             const [timeElapsed, setTimeElapsed] = React.useState(0);
@@ -227,7 +227,7 @@
                     setError('');
                     
                     // Play initial beep
-                    playBeep();
+                    playBeep("double");
                 } catch (err) {
                     setError(err.message);
                 }
@@ -250,15 +250,18 @@
                         
                         // Check if we should play a ping
                         if (nextPingIndex < pingTimes.length && newTime >= pingTimes[nextPingIndex]) {
-                            playBeep();
+                            playBeep("single");
                             setNextPingIndex(prev => prev + 1);
                         }
                         
                         // Stop when session is complete
-                        if (newTime >= totalDuration * 60) {
+                        if (newTime >= (totalDuration * 60)) {
                             setIsRunning(false);
-                            playBeep();
-                            alert("Session Complete!");
+                            playBeep("double");
+                            setTimeout(() => {
+                                alert("Session Complete!");
+                            }, 500);
+
                             return prev;
                         }
                         
