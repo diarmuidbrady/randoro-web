@@ -159,6 +159,22 @@
             }
         }
         
+        // Orchestrate the beep function
+        function playBeep(type = "single") {
+            if (type == "single") {
+                playOneBeep();
+            } else if (type == "double") {
+                const freq = 750;
+                const gain = 1;
+                const end_gain_value = 0.01;
+                const gap = 0.3;
+                playOneBeep(freq, gain, end_gain_value, gap);
+                setTimeout(() => {
+                    playOneBeep(freq, gain, end_gain_value, gap);
+                }, 100);
+            }
+        }
+
         // Play a beep sound
         function playOneBeep(frequency = 750, gain = 1, end_gain_value = 0.07, beep_duration = 0.15) {
             if (!audioContext) {
