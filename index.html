@@ -171,6 +171,27 @@
                 setTimeout(() => {
                     playOneBeep(freq, gain, end_gain_value, gap);
                 }, 100);
+            } else if (type == "double-rest") {
+                const freq = 500;
+                const gain = 0.5;
+                const end_gain_value = 0.07;
+                const gap = 0.3;
+                playOneBeep(freq, gain, end_gain_value, gap);
+                setTimeout(() => {
+                    playOneBeep(freq, gain, end_gain_value, gap);
+                }, 100);
+            } else if (type == "triple") {
+                const freq = 750;
+                const gain = 1;
+                const end_gain_value = 0.01;
+                const gap = 0.2;
+                playOneBeep(freq, gain, end_gain_value, gap);
+                setTimeout(() => {
+                    playOneBeep(freq, gain, end_gain_value, gap);
+                }, 75);
+                setTimeout(() => {
+                    playOneBeep(freq, gain, end_gain_value, gap);
+                }, 75);
             }
         }
 
