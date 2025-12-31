@@ -349,7 +349,7 @@
                 }, 1000);
                 
                 return () => clearInterval(interval);
-            }, [isRunning, nextPingIndex, pingTimes, totalDuration]);
+            }, [isRunning, isPaused, nextPingIndex, pingTimes, totalDuration]);
             
             // Format seconds as MM:SS
             const formatTime = (seconds) => {
@@ -383,11 +383,26 @@
                             <div className="input-group">
                                 <label>Number of Intervals</label>
                                 <input
-                                    type="number"
-                                    value={numIntervals}
-                                    onChange={(e) => setNumIntervals(e.target.value)}
-                                    min="2"
-                                />
+                                type="number"
+                                value={numIntervals}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    // Only allow empty string or integers (no decimals)
+                                    if (val === '' || /^\d+$/.test(val)) {
+                                        setNumIntervals(val);
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val <= 0) {
+                                        setNumIntervals(30);
+                                    } else {
+                                        setNumIntervals(val); // Ensure it's stored as integer
+                                    }
+                                }}
+                                min="2"
+                                step="1"
+                            />
                             </div>
                             
                             <div className="input-group">
@@ -406,7 +421,26 @@
                         </div>
                     ) : (
                         <div>
-                            <div className="timer-display">{formatTime(timeElapsed)}</div>
+                            {/* Session Parameters Display */}
+                            <div style={{
+                                textAlign: 'center',
+                                fontSize: '12px',
+                                color: '#888',
+                                marginBottom: '15px',
+                                padding: '10px',
+                                borderRadius: '8px'
+                            }}>
+                                <span style={{marginRight: '15px'}}>⏱ {totalDuration}min</span>
+                                <span style={{marginRight: '15px'}}>🔔 {numIntervals}x</span>
+                                <span>⏳ {minInterval}s</span>
+                            </div>
+
+                            {/* Timer Display */}
+                            <div className="timer-display">
+                                {formatTime(timeElapsed)}
+                            </div>
+                            
+                            {/* Status Info */}
                             <div className="status">
                                 {nextPingIndex < pingTimes.length 
                                     ? "Next ping in: " + formatTime(Math.round(pingTimes[nextPingIndex] - timeElapsed))
@@ -415,7 +449,21 @@
                             <div className="status">
                                 Ping {nextPingIndex} of {pingTimes.length}
                             </div>
-                            <button onClick={stopSession}>Stop Session</button>
+
+                            {/* Pause/Resume and Stop buttons */}
+                            {!isPaused ? (
+                                <button onClick={pauseSession} style={{flex: 1, marginTop: '15px', background: '#ff9800'}}>
+                                    ⏸ Pause
+                                </button>
+                            ) : (
+                                <button onClick={() => setIsPaused(false)} style={{flex: 1, marginTop: '15px', background: '#4caf50'}}>
+                                    ▶ Resume
+                                </button>
+                            )}
+                            
+                            <button onClick={stopSession} style={{flex:1, background: '#f44336'}}>
+                                ▫️ Stop
+                            </button>
                         </div>
                     )}
                 </div>
