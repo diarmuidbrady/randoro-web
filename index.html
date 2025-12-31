@@ -255,27 +255,52 @@
             const startSession = () => {
                 initAudio(); // Initialize audio context on user interaction
                 try {
-                    // Convert strings to numbers and validate
-                    const T = parseFloat(totalDuration) || 0;
-                    const N = parseFloat(numIntervals) || 0;
-                    const L = parseFloat(minInterval) || 0;
+                    const warmUp = parseFloat(warmUpS) || 0;
+                    const rounds = parseInt(nRounds) || 0;
+                    const workMin = parseFloat(workDurationMin) || 0;
+                    const restMin = parseFloat(restDurationMin) || 0;
+                    const intervals = parseInt(nIntervals) || 0;
+                    const minGap = parseFloat(minIntervalGapS) || 0;
+                    const cooldown = parseFloat(cooldownS) || 0;
+        
+                    // Convert minutes to seconds
+                    const workS = workMin * 60;
+                    const restS = restMin * 60;
 
-                    // Validate inputs
-                    if (T <= 0 || N <= 0 || L <= 0) {
-                        setError("All values must be numbers greater than zero")
+                    if (rounds <= 0 || workS <= 0 || intervals <= 0 || minGap <= 0) {
+                        setError("Rounds, work duration, intervals, and min gap must be greater than zero");
                         return;
                     }
 
-                    // Generate the ping schedule
-                    const times = generatePingTimes(T, N, L);
+                    const { times, pings } = generatePingTimes(
+                        workS, 
+                        restS, 
+                        intervals, 
+                        rounds, 
+                        warmUp, 
+                        cooldown, 
+                        minGap, 
+                        true // restFirst
+                    );
+                    
                     setPingTimes(times);
+                    setPingTypes(pings);
                     setNextPingIndex(0);
                     setTimeElapsed(0);
+                    setPhaseTimeElapsed(0);
+                    setCurrentRound(0);
+                    setCurrentPhase(warmUp > 0 ? 'warmup' : 'rest');
                     setIsRunning(true);
+                    setIsPaused(false);
+                    setSessionComplete(false);
                     setError('');
-                    
+        
                     // Play initial beep
-                    playBeep("double");
+                    if (warmUp > 0) {
+                        playBeep("triple"); // Warmup start
+                    } else {
+                        playBeep("double-rest"); // First rest/work start
+                    }
                 } catch (err) {
                     setError(err.message);
                 }
@@ -284,13 +309,19 @@
             // Stop the timer
             const stopSession = () => {
                 setIsRunning(false);
+                setIsPaused(false);
                 setTimeElapsed(0);
                 setNextPingIndex(0);
+            };
+
+            // Pause the timer
+            const pauseSession = () => {
+                setIsPaused(true);
             };
             
             // Timer logic - runs every second
             React.useEffect(() => {
-                if (!isRunning) return;
+                if (!isRunning || isPaused) return;
                 
                 const interval = setInterval(() => {
                     setTimeElapsed(prev => {
