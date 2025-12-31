@@ -111,19 +111,18 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script type="text/babel">
-        // Generate random ping times based on inputs
-        function generatePingTimes(T, N, L) {
-            // Validation check (same as Python assert)
-            const T_secs = T * 60
-            if (T_secs <= N * L) {
-                const minRequired = ((N * L) / 60).toFixed(3);
-                throw new Error(`Not enough time! With ${N} intervals and ${L}s minimum gap, you need at least ${minRequired} minutes.`);
-            }
+        // Generate random ping times based on inputs// Constants for ping types
+        const WORK = 0;
+        const PING = 1;
+        const REST = 2;
+        const EXTRA = 3;
 
-            const fixedComp = N * L;
-            const randomComp = T_secs - fixedComp;
-
-            // Generate random wait-time portions
+        // Generate random intervals within a work period
+        function generateRandomIntervals(workDurationS, nIntervals, minIntervalGapS) {
+            const fixedComp = nIntervals * minIntervalGapS;
+            const randomComp = workDurationS - fixedComp;
+            
+            // Generate random portions
             const waitTimes = [];
             for (let i = 0; i < N; i++) {
                 waitTimes.push(Math.random());
