@@ -227,17 +227,29 @@
                 navigator.vibrate(200);
             }
         }
-
+        
         function RandoroApp() {
-            // State management - these track the app's current data
-            const [totalDuration, setTotalDuration] = React.useState(2);
-            const [numIntervals, setNumIntervals] = React.useState(30);
-            const [minInterval, setMinInterval] = React.useState(2);
+            // Session parameters
+            const [warmUpS, setWarmUpS] = React.useState(0);
+            const [nRounds, setNRounds] = React.useState(3);
+            const [workDurationMin, setWorkDurationMin] = React.useState(3);
+            const [restDurationMin, setRestDurationMin] = React.useState(0.75);
+            const [nIntervals, setNIntervals] = React.useState(45);
+            const [minIntervalGapS, setMinIntervalGapS] = React.useState(2);
+            const [cooldownS, setCooldownS] = React.useState(0);
+
+            // Session state
             const [isRunning, setIsRunning] = React.useState(false);
+            const [isPaused, setIsPaused] = React.useState(false);
+            const [currentRound, setCurrentRound] = React.useState(0);
+            const [currentPhase, setCurrentPhase] = React.useState(''); // 'warmup', 'work', 'rest', 'cooldown'
             const [timeElapsed, setTimeElapsed] = React.useState(0);
+            const [phaseTimeElapsed, setPhaseTimeElapsed] = React.useState(0);
             const [pingTimes, setPingTimes] = React.useState([]);
+            const [pingTypes, setPingTypes] = React.useState([]);
             const [nextPingIndex, setNextPingIndex] = React.useState(0);
             const [error, setError] = React.useState('');
+            const [sessionComplete, setSessionComplete] = React.useState(false);
             
             // Start the timer session
             const startSession = () => {
