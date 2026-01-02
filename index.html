@@ -111,7 +111,8 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script type="text/babel">
-        // Generate random ping times based on inputs// Constants for ping types
+
+        // Constants for ping types
         const WORK = 0;
         const PING = 1;
         const REST = 2;
@@ -124,24 +125,111 @@
             
             // Generate random portions
             const waitTimes = [];
-            for (let i = 0; i < N; i++) {
+            for (let i = 0; i < nIntervals; i++) {
                 waitTimes.push(Math.random());
             }
-
+            
             const sumWait = waitTimes.reduce((a, b) => a + b, 0);
             const scaledWaitTimes = waitTimes.map(w => w * randomComp / sumWait);
-
-            // Build cumulative intervals (same output as Python list)
+            
+            // Use wait times to get intervals
             const randomIntervals = [];
             let cumulativeWait = 0;
-
-            for (let i = 0; i < N; i++) {
+            
+            for (let i = 0; i < nIntervals; i++) {
                 cumulativeWait += scaledWaitTimes[i];
-                const value = +(cumulativeWait + L * i).toFixed(3); // round to milliseconds
+                const value = +(cumulativeWait + minIntervalGapS * i).toFixed(3);
                 randomIntervals.push(value);
             }
-
+            
             return randomIntervals;
+        }
+
+        // Main function to generate ping times and types
+        function generatePingTimes(workDurationS, restDurationS, nIntervals, nRounds = 3, warmUpS = 0, cooldownS = 0, minIntervalGapS = 2, restFirst = true) {
+            // Validation checks
+            if (workDurationS <= nIntervals * minIntervalGapS) {
+                const maxIntervals = Math.ceil(workDurationS / minIntervalGapS) - 1;
+                throw new Error(`Too many intervals! With ${workDurationS}s work duration and ${minIntervalGapS}s minimum gap, max intervals is ${maxIntervals}.`);
+            }
+            if (nRounds <= 0) throw new Error("Number of rounds must be greater than zero.");
+            if (workDurationS <= 0) throw new Error("Work duration must be greater than zero.");
+            if (restDurationS < 0) throw new Error("Rest duration must be non-negative.");
+            
+            const warmup = warmUpS > 0;
+            const rest = restDurationS > 0;
+            const cooldown = cooldownS > 0;
+            
+            const times = [];
+            const pings = [];
+            const randomIntervals = {};
+            
+            // Handle warm up period
+            randomIntervals.warm_up_start = 0;
+            randomIntervals.session_start = warmUpS;
+            
+            if (warmup) {
+                times.push(randomIntervals.warm_up_start);
+                pings.push(EXTRA);
+            }
+            
+            // Generate work and rest periods
+            for (let round = 0; round < nRounds; round++) {
+                if (restFirst) {
+                    // Rest comes first
+                    randomIntervals[`rest_${round}_start`] = warmUpS + round * (workDurationS + restDurationS);
+                    randomIntervals[`work_${round}_start`] = warmUpS + round * (workDurationS + restDurationS) + restDurationS;
+                    
+                    if (rest) {
+                        times.push(randomIntervals[`rest_${round}_start`]);
+                        pings.push(REST);
+                    }
+                    times.push(randomIntervals[`work_${round}_start`]);
+                    pings.push(WORK);
+                    
+                    // Generate random intervals within work period
+                    const intervals = generateRandomIntervals(workDurationS, nIntervals, minIntervalGapS);
+                    randomIntervals[`work_${round}_intervals`] = intervals.map(interval => 
+                        randomIntervals[`work_${round}_start`] + interval
+                    );
+                    times.push(...randomIntervals[`work_${round}_intervals`]);
+                    pings.push(...Array(nIntervals).fill(PING));
+                    
+                } else {
+                    // Work comes first
+                    randomIntervals[`work_${round}_start`] = warmUpS + round * (workDurationS + restDurationS);
+                    randomIntervals[`rest_${round}_start`] = warmUpS + round * (workDurationS + restDurationS) + workDurationS;
+                    
+                    times.push(randomIntervals[`work_${round}_start`]);
+                    pings.push(WORK);
+                    
+                    // Generate random intervals within work period
+                    const intervals = generateRandomIntervals(workDurationS, nIntervals, minIntervalGapS);
+                    randomIntervals[`work_${round}_intervals`] = intervals.map(interval => 
+                        randomIntervals[`work_${round}_start`] + interval
+                    );
+                    times.push(...randomIntervals[`work_${round}_intervals`]);
+                    pings.push(...Array(nIntervals).fill(PING));
+                    
+                    if (rest) {
+                        times.push(randomIntervals[`rest_${round}_start`]);
+                        pings.push(REST);
+                    }
+                }
+            }
+            
+            randomIntervals.session_end = randomIntervals.session_start + nRounds * (workDurationS + restDurationS);
+            randomIntervals.cool_down_end = randomIntervals.session_end + cooldownS;
+            
+            times.push(randomIntervals.session_end);
+            pings.push(EXTRA);
+            
+            if (cooldown) {
+                times.push(randomIntervals.cool_down_end);
+                pings.push(EXTRA);
+            }
+            
+            return { times, pings };
         }
 
         // Create audio context once (iOS requires this)
@@ -324,32 +412,48 @@
                 if (!isRunning || isPaused) return;
                 
                 const interval = setInterval(() => {
-                    setTimeElapsed(prev => {
-                        const newTime = prev + 1;
+                    setTimeElapsed(prev => prev + 1);
+                    setPhaseTimeElapsed(prev => prev + 1);
+                    
+                    const newTime = timeElapsed + 1;
+                    
+                    // Check if we should play a ping
+                    if (nextPingIndex < pingTimes.length && newTime >= pingTimes[nextPingIndex]) {
+                        const pingType = pingTypes[nextPingIndex];
                         
-                        // Check if we should play a ping
-                        if (nextPingIndex < pingTimes.length && newTime >= pingTimes[nextPingIndex]) {
-                            playBeep("single");
-                            setNextPingIndex(prev => prev + 1);
-                        }
-                        
-                        // Stop when session is complete
-                        if (newTime >= (totalDuration * 60)) {
-                            setIsRunning(false);
+                        if (pingType === WORK) {
                             playBeep("double");
-                            setTimeout(() => {
-                                alert("Session Complete!");
-                            }, 500);
-
-                            return prev;
+                            setCurrentPhase('work');
+                            setPhaseTimeElapsed(0);
+                            setCurrentRound(prev => prev + 1);
+                        } else if (pingType === PING) {
+                            playBeep("single");
+                        } else if (pingType === REST) {
+                            playBeep("double-rest");
+                            setCurrentPhase('rest');
+                            setPhaseTimeElapsed(0);
+                        } else if (pingType === EXTRA) {
+                            if (timeElapsed < warmUpS) {
+                                // Warmup already handled
+                                setCurrentPhase('warmup');
+                            } else if (nextPingIndex === pingTimes.length - 1) {
+                                // Session complete
+                                playBeep("triple");
+                                setIsRunning(false);
+                                setSessionComplete(true);
+                            } else {
+                                playBeep("triple");
+                                setCurrentPhase('cooldown');
+                                setPhaseTimeElapsed(0);
+                            }
                         }
                         
-                        return newTime;
-                    });
+                        setNextPingIndex(prev => prev + 1);
+                    }
                 }, 1000);
                 
                 return () => clearInterval(interval);
-            }, [isRunning, isPaused, nextPingIndex, pingTimes, totalDuration]);
+            }, [isRunning, isPaused, timeElapsed, nextPingIndex, pingTimes, pingTypes]);
             
             // Format seconds as MM:SS
             const formatTime = (seconds) => {
@@ -362,56 +466,109 @@
             return (
                 <div>
                     <h1>⏱️ Randoro</h1>
-                    
+
                     {!isRunning ? (
                         <div>
                             <div className="input-group">
-                                <label>Total Duration (minutes)</label>
+                                <label>Warm Up (seconds)</label>
                                 <input
                                     type="number"
-                                    value={totalDuration}
-                                    onChange={(e) => setTotalDuration(e.target.value)}
-                                    onBlur={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (isNaN(val) || val <= 0) setTotalDuration('');
+                                    value={warmUpS}
+                                    onChange={(e) => setWarmUpS(e.target.value)}
+                                    min="0"
+                                    step="1"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Number of Rounds</label>
+                                <input
+                                    type="number"
+                                    value={nRounds}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d+$/.test(val)) {
+                                            setNRounds(val);
+                                        }
                                     }}
+                                    onBlur={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (isNaN(val) || val <= 0) {
+                                            setNRounds(3);
+                                        } else {
+                                            setNRounds(val);
+                                        }
+                                    }}
+                                    min="1"
+                                    step="1"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Work Duration (minutes)</label>
+                                <input
+                                    type="number"
+                                    value={workDurationMin}
+                                    onChange={(e) => setWorkDurationMin(e.target.value)}
                                     min="0.1"
                                     step="0.1"
                                 />
                             </div>
                             
                             <div className="input-group">
-                                <label>Number of Intervals</label>
+                                <label>Rest Duration (minutes)</label>
                                 <input
-                                type="number"
-                                value={numIntervals}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    // Only allow empty string or integers (no decimals)
-                                    if (val === '' || /^\d+$/.test(val)) {
-                                        setNumIntervals(val);
-                                    }
-                                }}
-                                onBlur={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (isNaN(val) || val <= 0) {
-                                        setNumIntervals(30);
-                                    } else {
-                                        setNumIntervals(val); // Ensure it's stored as integer
-                                    }
-                                }}
-                                min="2"
-                                step="1"
-                            />
+                                    type="number"
+                                    value={restDurationMin}
+                                    onChange={(e) => setRestDurationMin(e.target.value)}
+                                    min="0"
+                                    step="0.1"
+                                />
                             </div>
                             
                             <div className="input-group">
-                                <label>Minimum Time Between Pings (seconds)</label>
+                                <label>Number of Intervals per Round</label>
                                 <input
                                     type="number"
-                                    value={minInterval}
-                                    onChange={(e) => setMinInterval(e.target.value)}
+                                    value={nIntervals}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d+$/.test(val)) {
+                                            setNIntervals(val);
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (isNaN(val) || val <= 0) {
+                                            setNIntervals(45);
+                                        } else {
+                                            setNIntervals(val);
+                                        }
+                                    }}
                                     min="1"
+                                    step="1"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Minimum Gap Between Pings (seconds)</label>
+                                <input
+                                    type="number"
+                                    value={minIntervalGapS}
+                                    onChange={(e) => setMinIntervalGapS(e.target.value)}
+                                    min="1"
+                                    step="0.5"
+                                />
+                            </div>
+                            
+                            <div className="input-group">
+                                <label>Cool Down (seconds)</label>
+                                <input
+                                    type="number"
+                                    value={cooldownS}
+                                    onChange={(e) => setCooldownS(e.target.value)}
+                                    min="0"
+                                    step="1"
                                 />
                             </div>
                             
@@ -419,53 +576,85 @@
                             
                             <button onClick={startSession}>Start Session</button>
                         </div>
-                    ) : (
-                        <div>
-                            {/* Session Parameters Display */}
-                            <div style={{
-                                textAlign: 'center',
-                                fontSize: '12px',
-                                color: '#888',
-                                marginBottom: '15px',
-                                padding: '10px',
-                                borderRadius: '8px'
-                            }}>
-                                <span style={{marginRight: '15px'}}>⏱ {totalDuration}min</span>
-                                <span style={{marginRight: '15px'}}>🔔 {numIntervals}x</span>
-                                <span>⏳ {minInterval}s</span>
-                            </div>
+                ) : (
+                    <div>
+                        {/* Phase and Round Display */}
+                        <div style={{
+                            textAlign: 'center',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            marginBottom: '15px',
+                            color: currentPhase === 'work' ? '#4caf50' : currentPhase === 'rest' ? '#ff9800' : '#667eea'
+                        }}>
+                            {currentPhase === 'warmup' && '🔥 Warm Up'}
+                            {currentPhase === 'rest' && `💤 Rest - Round ${currentRound}/${nRounds}`}
+                            {currentPhase === 'work' && `🥊 Work - Round ${currentRound}/${nRounds}`}
+                            {currentPhase === 'cooldown' && '❄️ Cool Down'}
+                            {isPaused && <div style={{color: '#ff5722', marginTop: '5px'}}>⏸ PAUSED</div>}
+                        </div>
 
-                            {/* Timer Display */}
-                            <div className="timer-display">
-                                {formatTime(timeElapsed)}
-                            </div>
-                            
-                            {/* Status Info */}
+                        {/* Countdown Timer Display */}
+                        <div className="timer-display">
+                            {(() => {
+                                let phaseDuration = 0;
+                                if (currentPhase === 'warmup') phaseDuration = warmUpS;
+                                else if (currentPhase === 'work') phaseDuration = workDurationMin * 60;
+                                else if (currentPhase === 'rest') phaseDuration = restDurationMin * 60;
+                                else if (currentPhase === 'cooldown') phaseDuration = cooldownS;
+                                
+                                const countdown = Math.max(0, phaseDuration - phaseTimeElapsed);
+                                return formatTime(Math.round(countdown));
+                            })()}
+                        </div>
+                        
+                        {/* Ping Counter for Work Phase */}
+                        {currentPhase === 'work' && (
                             <div className="status">
-                                {nextPingIndex < pingTimes.length 
-                                    ? "Next ping in: " + formatTime(Math.round(pingTimes[nextPingIndex] - timeElapsed))
-                                    : 'Last interval'}
+                                {(() => {
+                                    // Count work pings in current round
+                                    let workPingsInRound = 0;
+                                    for (let i = 0; i < nextPingIndex; i++) {
+                                        if (pingTypes[i] === PING && i > (currentRound - 1) * nIntervals) {
+                                            workPingsInRound++;
+                                        }
+                                    }
+                                    return `Ping ${workPingsInRound} of ${nIntervals}`;
+                                })()}
                             </div>
-                            <div className="status">
-                                Ping {nextPingIndex} of {pingTimes.length}
-                            </div>
+                        )}
 
-                            {/* Pause/Resume and Stop buttons */}
+                        {/* Session Parameters */}
+                        <div style={{
+                            fontSize: '11px',
+                            color: '#999',
+                            textAlign: 'center',
+                            marginTop: '15px',
+                            padding: '8px',
+                            background: '#f9f9f9',
+                            borderRadius: '6px'
+                        }}>
+                            {workDurationMin}min work • {restDurationMin}min rest • {nIntervals} intervals
+                        </div>
+
+                        {/* Controls */}
+                        <div style={{marginTop: '20px'}}>
                             {!isPaused ? (
-                                <button onClick={pauseSession} style={{flex: 1, marginTop: '15px', background: '#ff9800'}}>
+                                <button onClick={pauseSession} style={{background: '#ff9800', marginBottom: '10px'}}>
                                     ⏸ Pause
                                 </button>
                             ) : (
-                                <button onClick={() => setIsPaused(false)} style={{flex: 1, marginTop: '15px', background: '#4caf50'}}>
+                                <button onClick={() => setIsPaused(false)} style={{background: '#4caf50', marginBottom: '10px'}}>
                                     ▶ Resume
                                 </button>
                             )}
                             
-                            <button onClick={stopSession} style={{flex:1, background: '#f44336'}}>
-                                ▫️ Stop
+                            <button onClick={stopSession} style={{background: '#f44336'}}>
+                                ⏹ Stop
                             </button>
                         </div>
-                    )}
+                    </div>
+                )
+                    }
                 </div>
             );
         }
