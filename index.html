@@ -114,7 +114,7 @@
 
         // Constants for ping types
         const WORK = 0;
-        const PING = 1;
+        const INTERVAL = 1;
         const REST = 2;
         const EXTRA = 3;
 
@@ -146,7 +146,7 @@
         }
 
         // Main function to generate ping times and types
-        function generatePingTimes(workDurationS, restDurationS, nIntervals, nRounds = 3, warmUpS = 0, cooldownS = 0, minIntervalGapS = 2, restFirst = true) {
+        function generatePingTimes(workDurationS, restDurationS, nIntervals, nRounds = 3, warmUpS = 0, cooldownS = 0, minIntervalGapS = 2, restFirst = false) {
             // Validation checks
             if (workDurationS <= nIntervals * minIntervalGapS) {
                 const maxIntervals = Math.ceil(workDurationS / minIntervalGapS) - 1;
@@ -193,7 +193,7 @@
                         randomIntervals[`work_${round}_start`] + interval
                     );
                     times.push(...randomIntervals[`work_${round}_intervals`]);
-                    pings.push(...Array(nIntervals).fill(PING));
+                    pings.push(...Array(nIntervals).fill(INTERVAL));
                     
                 } else {
                     // Work comes first
@@ -209,7 +209,7 @@
                         randomIntervals[`work_${round}_start`] + interval
                     );
                     times.push(...randomIntervals[`work_${round}_intervals`]);
-                    pings.push(...Array(nIntervals).fill(PING));
+                    pings.push(...Array(nIntervals).fill(INTERVAL));
                     
                     if (rest) {
                         times.push(randomIntervals[`rest_${round}_start`]);
@@ -318,13 +318,13 @@
         
         function RandoroApp() {
             // Session parameters
-            const [warmUpS, setWarmUpS] = React.useState(0);
+            const [warmUpS, setWarmUpS] = React.useState(3);
             const [nRounds, setNRounds] = React.useState(3);
-            const [workDurationMin, setWorkDurationMin] = React.useState(3);
-            const [restDurationMin, setRestDurationMin] = React.useState(0.75);
-            const [nIntervals, setNIntervals] = React.useState(45);
-            const [minIntervalGapS, setMinIntervalGapS] = React.useState(2);
-            const [cooldownS, setCooldownS] = React.useState(0);
+            const [workDurationMin, setWorkDurationMin] = React.useState(.1);
+            const [restDurationMin, setRestDurationMin] = React.useState(0.05);
+            const [nIntervals, setNIntervals] = React.useState(5);
+            const [minIntervalGapS, setMinIntervalGapS] = React.useState(1);
+            const [cooldownS, setCooldownS] = React.useState(2);
 
             // Session state
             const [isRunning, setIsRunning] = React.useState(false);
@@ -336,8 +336,30 @@
             const [pingTimes, setPingTimes] = React.useState([]);
             const [pingTypes, setPingTypes] = React.useState([]);
             const [nextPingIndex, setNextPingIndex] = React.useState(0);
+            const [workIntervalsInRound, setWorkIntervalsInRound] = React.useState(0);
             const [error, setError] = React.useState('');
             const [sessionComplete, setSessionComplete] = React.useState(false);
+
+            // Debug: Expose state to window for console access
+            React.useEffect(() => {
+                window.debugState = {
+                    isRunning,
+                    isPaused,
+                    currentRound,
+                    currentPhase,
+                    timeElapsed,
+                    phaseTimeElapsed,
+                    nextPingIndex,
+                    pingTimes,
+                    pingTypes,
+                    nRounds,
+                    workDurationMin,
+                    restDurationMin,
+                    nIntervals,
+                    workIntervalsInRound
+                };
+            }, [isRunning, isPaused, currentRound, currentPhase, timeElapsed, phaseTimeElapsed, 
+                nextPingIndex, pingTimes, pingTypes, nRounds, workDurationMin, restDurationMin, nIntervals, workIntervalsInRound]);
             
             // Start the timer session
             const startSession = () => {
@@ -368,16 +390,16 @@
                         warmUp, 
                         cooldown, 
                         minGap, 
-                        true // restFirst
+                        false // restFirst
                     );
                     
                     setPingTimes(times);
                     setPingTypes(pings);
-                    setNextPingIndex(0);
+                    setNextPingIndex(1);
                     setTimeElapsed(0);
                     setPhaseTimeElapsed(0);
-                    setCurrentRound(0);
-                    setCurrentPhase(warmUp > 0 ? 'warmup' : 'rest');
+                    setCurrentRound(warmUp > 0 ? 0 : 1);
+                    setCurrentPhase(warmUp > 0 ? 'warmup' : 'work');
                     setIsRunning(true);
                     setIsPaused(false);
                     setSessionComplete(false);
@@ -387,7 +409,7 @@
                     if (warmUp > 0) {
                         playBeep("triple"); // Warmup start
                     } else {
-                        playBeep("double-rest"); // First rest/work start
+                        playBeep("double"); // First rest/work start
                     }
                 } catch (err) {
                     setError(err.message);
@@ -400,6 +422,7 @@
                 setIsPaused(false);
                 setTimeElapsed(0);
                 setNextPingIndex(0);
+                setWorkIntervalsInRound(1);
             };
 
             // Pause the timer
@@ -418,23 +441,28 @@
                     const newTime = timeElapsed + 1;
                     
                     // Check if we should play a ping
+                    // if we've not reached the end and we've passed the next ping, play a ping
                     if (nextPingIndex < pingTimes.length && newTime >= pingTimes[nextPingIndex]) {
                         const pingType = pingTypes[nextPingIndex];
                         
                         if (pingType === WORK) {
+                            // Work Round
                             playBeep("double");
                             setCurrentPhase('work');
                             setPhaseTimeElapsed(0);
+                            setWorkIntervalsInRound(1)
                             setCurrentRound(prev => prev + 1);
-                        } else if (pingType === PING) {
+                        } else if (pingType === INTERVAL) {
+                            // Interval Ping
                             playBeep("single");
                         } else if (pingType === REST) {
+                            // Rest Round
                             playBeep("double-rest");
                             setCurrentPhase('rest');
                             setPhaseTimeElapsed(0);
                         } else if (pingType === EXTRA) {
                             if (timeElapsed < warmUpS) {
-                                // Warmup already handled
+                                // Warm Up
                                 setCurrentPhase('warmup');
                             } else if (nextPingIndex === pingTimes.length - 1) {
                                 // Session complete
@@ -442,6 +470,7 @@
                                 setIsRunning(false);
                                 setSessionComplete(true);
                             } else {
+                                // Cool Down
                                 playBeep("triple");
                                 setCurrentPhase('cooldown');
                                 setPhaseTimeElapsed(0);
@@ -551,7 +580,7 @@
                             </div>
                             
                             <div className="input-group">
-                                <label>Minimum Gap Between Pings (seconds)</label>
+                                <label>Minimum Gap Between Intervals (seconds)</label>
                                 <input
                                     type="number"
                                     value={minIntervalGapS}
@@ -606,19 +635,19 @@
                                 return formatTime(Math.round(countdown));
                             })()}
                         </div>
-                        
-                        {/* Ping Counter for Work Phase */}
+
+                        {/* Interval Counter for Work Phase */}
                         {currentPhase === 'work' && (
                             <div className="status">
                                 {(() => {
-                                    // Count work pings in current round
-                                    let workPingsInRound = 0;
+                                    // Count work intervals in current round
+                                    let workIntervalsInRound = 0;
                                     for (let i = 0; i < nextPingIndex; i++) {
-                                        if (pingTypes[i] === PING && i > (currentRound - 1) * nIntervals) {
-                                            workPingsInRound++;
+                                        if (pingTypes[i] === INTERVAL && i > (currentRound - 1) * nIntervals) {
+                                            workIntervalsInRound++;
                                         }
                                     }
-                                    return `Ping ${workPingsInRound} of ${nIntervals}`;
+                                    return `Interval ${workIntervalsInRound} of ${nIntervals}`;
                                 })()}
                             </div>
                         )}
