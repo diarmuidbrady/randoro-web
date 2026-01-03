@@ -643,10 +643,11 @@
                                     // Count work intervals in current round
                                     let workIntervalsInRound = 0;
                                     for (let i = 0; i < nextPingIndex; i++) {
-                                        if (pingTypes[i] === INTERVAL && i > (currentRound - 1) * nIntervals) {
+                                        if (pingTypes[i] === INTERVAL) {
                                             workIntervalsInRound++;
                                         }
                                     }
+                                    workIntervalsInRound = workIntervalsInRound - (currentRound - 1) * nIntervals;
                                     return `Interval ${workIntervalsInRound} of ${nIntervals}`;
                                 })()}
                             </div>
