@@ -615,10 +615,10 @@
                             marginBottom: '15px',
                             color: currentPhase === 'work' ? '#4caf50' : currentPhase === 'rest' ? '#ff9800' : '#667eea'
                         }}>
-                            {currentPhase === 'warmup' && '🔥 Warm Up'}
-                            {currentPhase === 'rest' && `💤 Rest - Round ${currentRound}/${nRounds}`}
-                            {currentPhase === 'work' && `🥊 Work - Round ${currentRound}/${nRounds}`}
-                            {currentPhase === 'cooldown' && '❄️ Cool Down'}
+                            {currentPhase === 'warmup' && 'Warm Up'}
+                            {currentPhase === 'rest' && `Rest - Round ${currentRound}/${nRounds}`}
+                            {currentPhase === 'work' && `Work - Round ${currentRound}/${nRounds}`}
+                            {currentPhase === 'cooldown' && 'Cool Down'}
                             {isPaused && <div style={{color: '#ff5722', marginTop: '5px'}}>⏸ PAUSED</div>}
                         </div>
 
