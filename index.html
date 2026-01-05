@@ -654,16 +654,18 @@
                         )}
 
                         {/* Session Parameters */}
-                        <div style={{
-                            fontSize: '11px',
-                            color: '#999',
-                            textAlign: 'center',
-                            marginTop: '15px',
-                            padding: '8px',
-                            background: '#f9f9f9',
-                            borderRadius: '6px'
-                        }}>
-                            {workDurationMin}min work • {restDurationMin}min rest • {nIntervals} intervals
+
+                        <div className="status">
+                            {(() => {
+                                const workS = workDurationMin * 60;
+                                const dispWorkM = Math.floor(workDurationMin);
+                                const dispWorkS = workS % 60;
+                                const restS = restDurationMin * 60;
+                                const dispRestM = Math.floor(restDurationMin);
+                                const dispRestS = restS % 60;
+
+                                return `${dispWorkM}m ${dispWorkS}s work • ${dispRestM}m ${dispRestS}s rest • ${nIntervals} intervals • ${minIntervalGapS}s min gap`;
+                            })()}
                         </div>
 
                         {/* Controls */}
