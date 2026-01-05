@@ -318,13 +318,13 @@
         
         function RandoroApp() {
             // Session parameters
-            const [warmUpS, setWarmUpS] = React.useState(3);
+            const [warmUpS, setWarmUpS] = React.useState(10);
             const [nRounds, setNRounds] = React.useState(3);
-            const [workDurationMin, setWorkDurationMin] = React.useState(.1);
-            const [restDurationMin, setRestDurationMin] = React.useState(0.05);
+            const [workDurationMin, setWorkDurationMin] = React.useState(2);
+            const [restDurationMin, setRestDurationMin] = React.useState(0.5);
             const [nIntervals, setNIntervals] = React.useState(5);
-            const [minIntervalGapS, setMinIntervalGapS] = React.useState(1);
-            const [cooldownS, setCooldownS] = React.useState(2);
+            const [minIntervalGapS, setMinIntervalGapS] = React.useState(2);
+            const [cooldownS, setCooldownS] = React.useState(0);
 
             // Session state
             const [isRunning, setIsRunning] = React.useState(false);
